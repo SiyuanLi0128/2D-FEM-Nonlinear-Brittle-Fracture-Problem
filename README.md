@@ -13,7 +13,9 @@ Extensible architecture for implementing additional constitutive models
 Educational foundation for advanced computational solid mechanics
 
 Implementation Details:
+
 MeshPy (2022.1.3) 
+
 Shapely (2.0.7)
 
 Primary Application:
