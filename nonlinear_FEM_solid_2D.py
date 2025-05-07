@@ -208,8 +208,7 @@ class SolidProblem2D:
         y = ele_Nodes[:, :, 1]  # 形状为 (n_elements, 3)
 
         # 计算带正负号的面积
-        signed_area, area = self.compute_element_area(ele_Nodes)  # 形状为 (n_elements,)
-        factor = 1 / (2 * signed_area)  # 形状为 (n_elements,)
+        factor = 1 / (2 * self.signed_area)  # 形状为 (n_elements,)
 
         # 计算差值
         dy = np.roll(y, -1, axis=1) - np.roll(y, 1, axis=1)  # y2 - y3, y3 - y1, y1 - y2
