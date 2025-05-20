@@ -1,6 +1,7 @@
 import time
 
 import matplotlib.pyplot as plt
+import meshio
 import numpy as np
 from matplotlib import tri
 from meshpy import triangle
