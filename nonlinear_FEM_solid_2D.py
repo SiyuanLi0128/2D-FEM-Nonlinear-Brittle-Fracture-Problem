@@ -23,7 +23,6 @@ class SolidProblem2D:
                  Young_modulus=1.,
                  Poisson_ratio=0.3,
                  constitutive_law=None,
-                 max_area=20.0,
                  bound_type='hard',
                  penalty=1e+4):
         self.constants = None
@@ -53,14 +52,13 @@ class SolidProblem2D:
         self.Young_modulus = Young_modulus  # 杨氏模量
         self.Poisson_ratio = Poisson_ratio  # 泊松比
         self.constitutive_law = constitutive_law
-        self.max_area = max_area
         self.bound_type = bound_type
         self.penalty = penalty
 
         self.lmbd = self.Young_modulus * self.Poisson_ratio / ((1 + self.Poisson_ratio) * (1 - 2 * self.Poisson_ratio))
         self.mu = self.Young_modulus / (2 * (1 + self.Poisson_ratio))
 
-    def set_elements(self, ):
+    def set_elements(self, max_area=20.0,):
         print('------------------------生成单元------------------------')
         start = time.time()
         # 定义边界边
@@ -72,7 +70,7 @@ class SolidProblem2D:
 
         # 定义细化函数
         def needs_refinement(vertices, area):
-            return area > self.max_area
+            return area > max_area
 
         # 生成网格
         mesh = triangle.build(info, refinement_func=needs_refinement)
@@ -83,6 +81,50 @@ class SolidProblem2D:
 
         self.nodes = np.array(mesh.points)  # 节点坐标，形为[[x_0, y_0], [x_1, y_1], ..., [x_(n-1), y_(n-1)]]
         self.elements = np.array(mesh.elements)  # 单元节点索引，形为[...[x_i, x_j, x_m]...]
+        self.num_nodes = len(self.nodes)  # 节点数量
+        self.num_elements = len(self.elements)  # 单元数量
+        self.X_nodes = self.nodes[:, 0]
+        self.Y_nodes = self.nodes[:, 1]
+
+        element_nodes = self.nodes[self.elements]  # 提取节点坐标
+        # Nodes 形状为 (n_elements, 3, 2)
+        x = element_nodes[:, :, 0]  # 形状为 (n_elements, 3)
+        y = element_nodes[:, :, 1]  # 形状为 (n_elements, 3)
+
+        # 计算带正负号的面积
+        self.signed_area = 0.5 * (
+                x[:, 0] * (y[:, 1] - y[:, 2]) +
+                x[:, 1] * (y[:, 2] - y[:, 0]) +
+                x[:, 2] * (y[:, 0] - y[:, 1])
+        )  # 形状为 (n_elements,)
+        self.area = np.abs(self.signed_area).reshape(-1, 1)
+
+        dist_mat = lil_matrix((self.num_nodes, self.num_nodes), dtype=np.float64)
+
+        X_ele = self.X_nodes[self.elements]
+        Y_ele = self.Y_nodes[self.elements]
+        X_diff = X_ele[:, np.newaxis].reshape(-1, 3, 1) - X_ele[np.newaxis, :].reshape(-1, 1, 3)
+        Y_diff = Y_ele[:, np.newaxis].reshape(-1, 3, 1) - Y_ele[np.newaxis, :].reshape(-1, 1, 3)
+        distance = np.sqrt(X_diff ** 2 + Y_diff ** 2)
+        row_indices = self.elements[:, :, np.newaxis].repeat(3, axis=2).reshape(-1)
+        col_indices = self.elements[:, np.newaxis, :].repeat(3, axis=1).reshape(-1)
+        dist_mat[row_indices, col_indices] = distance.reshape(-1)
+
+        self.dist_mat = dist_mat.tocsr()
+
+        self.num_dofs = self.num_nodes * 2
+        self.load_vector = np.zeros(self.num_dofs, dtype=np.float64)
+
+        self.displacements = np.zeros((self.num_dofs,), dtype=np.float64)
+        self.stresses = np.zeros((self.num_elements, 3), dtype=np.float64)
+        self.strains = np.zeros((self.num_elements, 3), dtype=np.float64)
+        self.elastic_mat = np.zeros((self.num_dofs, self.num_dofs), dtype=np.float64)
+        self.K_mat = np.zeros((self.num_dofs, self.num_dofs), dtype=np.float64)
+
+    def read_from_vtk(self, VTK_path):
+        mesh = meshio.read(VTK_path)
+        self.nodes = np.array(mesh.points[:, 0: 2])  # 节点坐标，形为[[x_0, y_0], [x_1, y_1], ..., [x_(n-1), y_(n-1)]]
+        self.elements = np.array(mesh.cells_dict['triangle'])  # 单元节点索引，形为[...[x_i, x_j, x_m]...]
         self.num_nodes = len(self.nodes)  # 节点数量
         self.num_elements = len(self.elements)  # 单元数量
         self.X_nodes = self.nodes[:, 0]
@@ -805,10 +847,9 @@ if __name__ == '__main__':
     solid_problem = SolidProblem2D(boundary_nodes, E, nu,
                                    constitutive_law=None,
                                    penalty=w,
-                                   max_area=5e-4,
                                    bound_type='hard')
 
-    solid_problem.set_elements()
+    solid_problem.set_elements(max_area=5e-4)
     solid_problem.compute_B_matrix()
 
 
