@@ -482,7 +482,7 @@ class SolidProblem2D:
 
         return self.load_vector
 
-    def solve(self, tol=1e-8, max_iter=8, save_tag=True, save_path=f'./solutions/sol_{label}.npz'):
+    def solve(self, tol=1e-8, max_iter=8):
         """
         求解位移、应力、应变
         """
@@ -534,14 +534,14 @@ class SolidProblem2D:
         self.strains = np.add(self.strains, delta_strains, dtype=np.float64)
         self.stresses = np.add(self.stresses, delta_stresses, dtype=np.float64)
 
-        if save_tag:
-            np.savez(
-                save_path,
-                array1=self.nodes, array2=self.elements,
-                array3=self.displacements, array4=self.stresses, array5=self.strains
-            )
-
         return self.displacements, self.stresses, self.strains
+
+    def save_sol(self, save_path=f'./solutions/sol_{label}.npz'):
+        np.savez(
+            save_path,
+            array1=self.nodes, array2=self.elements,
+            array3=self.displacements, array4=self.stresses, array5=self.strains
+        )
 
     def export_force(self,
                      x_condition=lambda x: x < np.inf,
@@ -890,10 +890,11 @@ if __name__ == '__main__':
         #                                          x_condition=load_boundary_1)
         solid_problem.generate_elastic_stiffness_matrix()
         solid_problem.generate_loading_vector()
-        solid_problem.solve(tol=1.e-8, max_iter=1, save_tag=True, save_path=sol_path)
+        solid_problem.solve(tol=1.e-8, max_iter=1)
         force = solid_problem.export_force(y_condition=load_boundary_0)[1]
         linear_force_steps.append(force)
         print(f'\033[31mFx = {force}\033[0m')
+    solid_problem.save_sol(save_path=sol_path)
 
     solid_problem.displacements *= 0.
     solid_problem.stresses *= 0.
@@ -915,10 +916,11 @@ if __name__ == '__main__':
         #                                          x_condition=load_boundary_1)
         solid_problem.generate_elastic_stiffness_matrix()
         solid_problem.generate_loading_vector()
-        solid_problem.solve(tol=1.e-8, max_iter=1, save_tag=True, save_path=sol_path)
+        solid_problem.solve(tol=1.e-8, max_iter=1)
         force = solid_problem.export_force(y_condition=load_boundary_0)[1]
         force_steps.append(force)
         print(f'\033[31mFx = {force}\033[0m')
+    # solid_problem.save_sol(save_path=sol_path)
 
     # 绘图
     solid_problem.plot_deformed_shapes(scale_factor=10, savefig=False)
